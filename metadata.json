@@ -1,0 +1,6 @@
+{
+  "name": "Daledou Assistant",
+  "description": "A powerful helper and automation client for Q-Pet Daledou. Manage multiple accounts, run daily automation routines, and send custom game commands with HTML-to-text rendering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
