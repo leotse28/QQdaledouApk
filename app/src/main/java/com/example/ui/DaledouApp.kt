@@ -217,9 +217,10 @@ fun DaledouApp(viewModel: DaledouViewModel) {
             qqInitial = "",
             descInitial = "",
             cookiesInitial = "",
+            passwordInitial = "",
             onDismiss = { showAddDialog = false },
-            onSave = { qq, desc, cookies ->
-                viewModel.addAccount(qq, desc, cookies)
+            onSave = { qq, desc, cookies, password ->
+                viewModel.addAccount(qq, desc, cookies, password)
                 showAddDialog = false
             }
         )
@@ -232,12 +233,11 @@ fun DaledouApp(viewModel: DaledouViewModel) {
             title = "修改账号 Edit Account",
             qqInitial = account.qq,
             descInitial = account.description,
-            cookiesInitial = account.cookieString,
+            cookiesInitial = account.getDecryptedCookies(),
+            passwordInitial = account.getDecryptedPassword(),
             onDismiss = { accountToEdit = null },
-            onSave = { qq, desc, cookies ->
-                viewModel.updateAccount(
-                    account.copy(qq = qq, description = desc, cookieString = cookies)
-                )
+            onSave = { qq, desc, cookies, password ->
+                viewModel.updateAccount(account, qq, desc, cookies, password)
                 accountToEdit = null
             }
         )
@@ -406,6 +406,46 @@ fun AccountItemCard(
                         )
                     }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = "Secure Shield Icon",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Keystore AES-GCM 硬件级密盾防护",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                if (account.getDecryptedPassword().isNotEmpty()) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = "Password configured",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = "安全码已装填",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -864,12 +904,14 @@ fun AccountEditDialog(
     qqInitial: String,
     descInitial: String,
     cookiesInitial: String,
+    passwordInitial: String,
     onDismiss: () -> Unit,
-    onSave: (qq: String, desc: String, cookies: String) -> Unit
+    onSave: (qq: String, desc: String, cookies: String, password: String) -> Unit
 ) {
     var qq by remember { mutableStateOf(qqInitial) }
     var desc by remember { mutableStateOf(descInitial) }
     var cookies by remember { mutableStateOf(cookiesInitial) }
+    var password by remember { mutableStateOf(passwordInitial) }
 
     var qqError by remember { mutableStateOf(false) }
     var cookiesError by remember { mutableStateOf(false) }
@@ -887,13 +929,67 @@ fun AccountEditDialog(
                     .padding(20.dp)
                     .fillMaxWidth()
             ) {
-                Text(
-                    text = title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "Shield Icon",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = title,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Encrypted Storage Banner Notice
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Lock Secure",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Keystore 安全保险箱已就绪",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "所有输入信息均在本地设备运行 AES-GCM 硬件级密盾防护，数据绝不上传，守护隐私安全。",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 OutlinedTextField(
                     value = qq,
@@ -927,6 +1023,22 @@ fun AccountEditDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("dialog_password_input"),
+                    label = { Text("平台辅助密码/安全码 (选填)") },
+                    placeholder = { Text("若有可填入，将和 Cookies 同步高强度加密。") },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Default.Key, contentDescription = "Password Icon", modifier = Modifier.size(20.dp))
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
                     value = cookies,
                     onValueChange = {
                         cookies = it
@@ -934,10 +1046,10 @@ fun AccountEditDialog(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .height(110.dp)
                         .testTag("dialog_cookies_input"),
                     label = { Text("游戏Cookie String") },
-                    placeholder = { Text("含 uin=o0xxxxx; skey=@xxxx ; RK=... 等在内的完整手机大乐斗网站 cookies...") },
+                    placeholder = { Text("包含 uin, skey, RK 等在内的手机大乐斗网站 cookies...") },
                     isError = cookiesError
                 )
                 if (cookiesError) {
@@ -971,7 +1083,7 @@ fun AccountEditDialog(
                                 hasError = true
                             }
                             if (!hasError) {
-                                onSave(qq, desc, cookies)
+                                onSave(qq, desc, cookies, password)
                             }
                         },
                         shape = RoundedCornerShape(10.dp),

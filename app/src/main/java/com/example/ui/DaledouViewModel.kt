@@ -72,20 +72,33 @@ class DaledouViewModel(application: Application) : AndroidViewModel(application)
         _selectedTasks.value = currentSet
     }
 
-    fun addAccount(qq: String, description: String, cookies: String) {
+    fun addAccount(qq: String, description: String, cookies: String, password: String = "") {
         viewModelScope.launch {
+            val encryptedCookies = com.example.security.CryptoManager.encrypt(cookies.trim())
+            val encryptedPassword = com.example.security.CryptoManager.encrypt(password.trim())
             val account = DaledouAccount(
                 qq = qq.trim(),
                 description = description.trim().ifEmpty { "QQ Account" },
-                cookieString = cookies.trim()
+                cookieString = encryptedCookies,
+                password = encryptedPassword,
+                isEncrypted = true
             )
             accountDao.insertAccount(account)
         }
     }
 
-    fun updateAccount(account: DaledouAccount) {
+    fun updateAccount(account: DaledouAccount, newQq: String, newDesc: String, rawCookies: String, rawPassword: String) {
         viewModelScope.launch {
-            accountDao.updateAccount(account)
+            val encryptedCookies = com.example.security.CryptoManager.encrypt(rawCookies.trim())
+            val encryptedPassword = com.example.security.CryptoManager.encrypt(rawPassword.trim())
+            val updated = account.copy(
+                qq = newQq.trim(),
+                description = newDesc.trim().ifEmpty { "QQ Account" },
+                cookieString = encryptedCookies,
+                password = encryptedPassword,
+                isEncrypted = true
+            )
+            accountDao.updateAccount(updated)
         }
     }
 

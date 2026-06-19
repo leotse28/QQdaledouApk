@@ -30,7 +30,7 @@ object DaledouRunner {
      */
     suspend fun executeSingleCommand(account: DaledouAccount, commandPath: String): String {
         return try {
-            val html = makeGetRequest(commandPath, account.cookieString)
+            val html = makeGetRequest(commandPath, account.getDecryptedCookies())
             cleanHtmlToText(html)
         } catch (e: Exception) {
             "Error: ${e.localizedMessage ?: "Unknown network error"}"
@@ -118,7 +118,7 @@ object DaledouRunner {
         onLog: (String) -> Unit
     ) {
         val qq = account.qq
-        val cookies = account.cookieString
+        val cookies = account.getDecryptedCookies()
 
         if (cookies.isBlank()) {
             onLog("[${getCurrentTime()}] ✖ [QQ:$qq] 启动失败：未配置有效的 Cookie 信息。")
